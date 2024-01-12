@@ -8,11 +8,7 @@ def test_create_room():
 
 def test_create_measurement():
     measurement_time = datetime.utcnow()
-    data_entry = measurement(
-        timestamp = measurement_time,
-        temperature = 20.5,
-        humidity = .56
-    )
+    data_entry = measurement(measurement_time, 20.5, .56)
 
     assert data_entry.timestamp == measurement_time and data_entry.temperature == 20.5 and data_entry.humidity == 0.56
 
