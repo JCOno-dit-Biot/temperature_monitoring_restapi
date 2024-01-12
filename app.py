@@ -5,15 +5,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
-
-
 connection = psycopg2.connect(
     host = "localhost",
     database= os.getenv("POSTGRES_DB_NAME"),
     user= os.getenv("POSTGRES_USER_NAME"),
     password= os.getenv("POSTGRES_PWD"),
-    port = 5432
+    port = os.getenv("PORT")
 )
 
 app = Flask(__name__)
