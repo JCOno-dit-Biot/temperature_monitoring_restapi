@@ -1,5 +1,8 @@
 from dataclasses import dataclass
 from datetime import datetime
+import logging
+
+
 
 class room():
 
@@ -8,7 +11,10 @@ class room():
 
 @dataclass
 class measurement:
-    timestamp : datetime
+    room: room
+    entry_timestamp : datetime
     temperature: float
     humidity: float
 
+    
+            
