@@ -26,7 +26,7 @@ class PostgreSQLRepository(AbstractRepository):
 
         with self.connection.cursor() as cur:
             try:
-                cur.execute('INSERT INTO rooms (name) VALUES (%s) RETURNING id;', (room.name,))
+                cur.execute('INSERT INTO rooms (name) VALUES (%s) RETURNING id;', (room.name.lower(),))
                 room_id = cur.fetchone()[0]
             except Exception as e:
                 self.connection.rollback()
@@ -41,7 +41,7 @@ class PostgreSQLRepository(AbstractRepository):
         with self.connection.cursor() as cur:
             room_id = None
             try:
-                cur.execute('SELECT id FROM rooms WHERE name = (%s)',(room.name,))
+                cur.execute('SELECT id FROM rooms WHERE name = (%s)',(room.name.lower(),))
                 room_id = cur.fetchone()[0]
             except Exception as e:
                 logger.error(f'could not find room {room.name} in database')
@@ -64,21 +64,22 @@ class PostgreSQLRepository(AbstractRepository):
             else:
                 self.connection.commit()
     
-    def get_average_average_temperature(self, room = None):
+    def get_average_temperature(self, room = None):
         
+        average_temperature = None
         with self.connection.cursor() as cur:
             try:
                 if room is not None:
                     cur.execute("SELECT AVG(temperature) AS avg_temperature FROM sensor_entry WHERE room_id = (SELECT id FROM rooms WHERE name = %s)", (room.name))
-                    total_number_days = cur.fetchone()
+                    average_temperature = cur.fetchone()
                 else:
                     cur.execute("SELECT AVG(temperature) AS avg_temperature FROM sensor_entry")
-                    total_number_days = cur.fetchone()
+                    average_temperature = cur.fetchone()
             except Exception as e:
                 logger.error("could not calculate average temperature")
                 logger.error(e)
 
-        return total_number_days
+        return average_temperature
     
     def get_number_days_monitoring(self):
         
