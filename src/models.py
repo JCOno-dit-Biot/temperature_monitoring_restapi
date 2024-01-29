@@ -1,16 +1,15 @@
-from dataclasses import dataclass
+
 from datetime import datetime
 import logging
 
+from pydantic import BaseModel
 
 
-class room():
+class room(BaseModel):
+    name: str
 
-    def __init__(self, name):
-        self.name = name
 
-@dataclass
-class measurement:
+class measurement(BaseModel):
     room: room
     entry_timestamp : datetime
     temperature: float
