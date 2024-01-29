@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS "rooms" (
     "id" SERIAL PRIMARY KEY,
-    "name" VARCHAR(100) 
+    "name" VARCHAR(100) UNIQUE  
 );
 
 CREATE TABLE IF NOT EXISTS "sensor_entry" (
@@ -12,3 +12,6 @@ CREATE TABLE IF NOT EXISTS "sensor_entry" (
 );
 
 select * from "rooms";
+
+INSERT INTO rooms (name)
+    VALUES ('default room')
