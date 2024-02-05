@@ -70,11 +70,11 @@ class PostgreSQLRepository(AbstractRepository):
         with self.connection.cursor() as cur:
             try:
                 if room is not None:
-                    cur.execute("SELECT AVG(temperature) AS avg_temperature FROM sensor_entry WHERE room_id = (SELECT id FROM rooms WHERE name = %s)", (room.name))
-                    average_temperature = cur.fetchone()
+                    cur.execute("SELECT AVG(temperature) AS avg_temperature FROM sensor_entry WHERE room_id = (SELECT id FROM rooms WHERE name = %s)", (room.name,))
+                    average_temperature = cur.fetchone()[0]
                 else:
                     cur.execute("SELECT AVG(temperature) AS avg_temperature FROM sensor_entry")
-                    average_temperature = cur.fetchone()
+                    average_temperature = cur.fetchone()[0]
             except Exception as e:
                 logger.error("could not calculate average temperature")
                 logger.error(e)
