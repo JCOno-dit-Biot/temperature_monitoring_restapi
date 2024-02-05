@@ -4,7 +4,8 @@ import psycopg2
 from dotenv import load_dotenv
 from src import models
 from src.postgres_repository import *
-from pydantic import create_model
+# from pydantic import create_model
+from pydantic import ValidationError
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -67,15 +68,15 @@ def add_measurement():
     return { "message": f"Measurement recorded."}, 201
 
 
-#try to make the room optional. if no room passed, calculate average for all rooms
-#with the current implementaiton room_name must be specified
+#passing a room is optional. revisit exception Validation may be thrown for other reasons than just room being None
+@app.get("/api/average/", defaults = {'room_name': None})
 @app.get("/api/average/<string:room_name>")
 def get_average_temperature(room_name):
     data = {"name":room_name}
     
     try:
         avg_room = models.room(**data)
-    except KeyError:
+    except ValidationError:
         logger.warning("No room were specified, calculating the average over all entries")
         avg_room = None
 
