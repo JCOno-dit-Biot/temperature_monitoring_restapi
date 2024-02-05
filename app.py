@@ -4,12 +4,15 @@ import psycopg2
 from dotenv import load_dotenv
 from src import models
 from src.postgres_repository import *
+from pydantic import create_model
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
 load_dotenv()
+
+
 
 def parse_measurement_dict(data_dict):
         
@@ -62,3 +65,23 @@ def add_measurement():
         repo.add_measurement(sensor_measurement, room_id)
 
     return { "message": f"Measurement recorded."}, 201
+
+
+#try to make the room optional. if no room passed, calculate average for all rooms
+#with the current implementaiton room_name must be specified
+@app.get("/api/average/<string:room_name>")
+def get_average_temperature(room_name):
+    data = {"name":room_name}
+    
+    try:
+        avg_room = models.room(**data)
+    except KeyError:
+        logger.warning("No room were specified, calculating the average over all entries")
+        avg_room = None
+
+    average_temp = repo.get_average_temperature(avg_room)
+    if average_temp:
+        return { "average": round(average_temp, 2)}, 201
+    else:
+        #
+        return {"messsage": f"could not calcualte average for room: {avg_room.name}"} ,201
