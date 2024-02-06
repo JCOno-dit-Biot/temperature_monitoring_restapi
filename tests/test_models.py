@@ -30,3 +30,32 @@ def test_create_measurement():
 
     assert data_entry.entry_timestamp == measurement_time and data_entry.temperature == 20.5 and data_entry.humidity == 0.56
 
+@pytest.mark.parametrize("humidity_level", [None, -1, 1.5])
+def test_humidity_validation(humidity_level):
+
+    bedroom_dict = {"name": "bedroom"}
+    bedroom = room(**bedroom_dict)
+
+    measurement_data = {
+        "room": bedroom,
+        "entry_timestamp": datetime.utcnow(),
+        "temperature": 20.5,
+        "humidity": humidity_level
+    }
+    with pytest.raises(ValidationError):
+        data_entry = measurement(**measurement_data)
+
+@pytest.mark.parametrize("temperature", [None, -56, 110])
+def test_temperature_validation(temperature):
+
+    bedroom_dict = {"name": "bedroom"}
+    bedroom = room(**bedroom_dict)
+
+    measurement_data = {
+        "room": bedroom,
+        "entry_timestamp": datetime.utcnow(),
+        "temperature": temperature,
+        "humidity": 0.5
+    }
+    with pytest.raises(ValidationError):
+        data_entry = measurement(**measurement_data)

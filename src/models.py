@@ -2,7 +2,7 @@
 from datetime import datetime
 import logging
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class room(BaseModel):
@@ -12,8 +12,8 @@ class room(BaseModel):
 class measurement(BaseModel):
     room: room
     entry_timestamp : datetime
-    temperature: float
-    humidity: float
+    temperature: float = Field (ge = -40, le = 70)
+    humidity: float = Field (ge = 0, le = 1)
 
     
             
