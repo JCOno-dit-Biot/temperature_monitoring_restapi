@@ -1,22 +1,16 @@
 from .models import *
-import abc
 import logging
+from .abstract_repository import AbstractRepository
+
 
 logger = logging.getLogger(__name__)
 
-class AbstractRepository(abc.ABC):
+###
+# This version of the repository uses a older version of the 
+# database schema with only two tables: room and measurement_entry
+###
 
-    @abc.abstractmethod
-    def add_room(self, room: room):
-        raise NotImplementedError
     
-    def add_measurement(self, measurement: measurement, room_id: int):
-        raise NotImplementedError
-    
-    def get_number_days_monitoring(self):
-        raise NotImplementedError
-    
-
 class PostgreSQLRepository(AbstractRepository):
 
     def __init__(self, connection):
