@@ -3,7 +3,7 @@ from flask import Flask, request
 import psycopg2
 from dotenv import load_dotenv
 from src import models
-from src.postgres_repository import *
+from src.sqlmodel_repository import *
 # from pydantic import create_model
 from pydantic import ValidationError
 
@@ -34,23 +34,29 @@ def parse_measurement_dict(data_dict):
         return measurement_obj
 
 
-connection = psycopg2.connect(
-    host = "localhost",
-    database= os.getenv("POSTGRES_DB_NAME"),
-    user= os.getenv("POSTGRES_USER_NAME"),
-    password= os.getenv("POSTGRES_PWD"),
-    port = os.getenv("PORT")
-)
-repo = PostgreSQLRepository(connection)
+
+host = "localhost"
+database= os.getenv("POSTGRES_DB_NAME")
+user= os.getenv("POSTGRES_USER_NAME")
+password= os.getenv("POSTGRES_PWD")
+port = os.getenv("PORT")
+
+
+DATABASE_URL = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}"
+
+engine = create_engine(DATABASE_URL)
+SQLModel.metadata.create_all(engine)
+
+repo = SQLModel_repository(engine)
 app = Flask(__name__)
 
 @app.post("/api/room")
 def create_room():
     data= request.get_json()
-    room = models.room(data["name"])
-    room_id = repo.add_room(room)
+    room = models.Room(name = data["name"])
+    room= repo.add_room(room)
 
-    return {"id": room_id, "message": f"Room {room.name} created."}, 201
+    return {"id": room.id, "message": f"Room {room.name} created."}, 201
 
 @app.post("/api/measurement")
 def add_measurement():
@@ -82,7 +88,7 @@ def get_average_temperature(room_name):
 
     average_temp = repo.get_average_temperature(avg_room)
     if average_temp:
-        return { "average": round(average_temp, 2)}, 201
+        return { "average": round(average_temp, 2)}, 200
     else:
         #
-        return {"messsage": f"could not calcualte average for room: {avg_room.name}"} ,201
+        return {"messsage": f"could not calcualte average for room: {avg_room.name}"} ,200
