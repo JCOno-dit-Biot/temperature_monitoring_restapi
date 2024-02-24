@@ -4,6 +4,8 @@ import psycopg2
 from dotenv import load_dotenv
 from src import models
 from src.sqlmodel_repository import *
+from sqlalchemy.orm import joinedload
+
 from pydantic import ValidationError
 
 from sqlalchemy.exc import IntegrityError, OperationalError, DataError, ProgrammingError
@@ -72,6 +74,33 @@ def create_room():
     else:
         return jsonify({"id": room.id, "message": f"Room {room.name} created."}), 201
 
+@app.post("/api/sensor")
+def create_sensor():
+    data= request.get_json()
+
+    room = repo.get_room(models.Room(name = data["room_name"]))
+    
+    if room is None:
+        try: 
+            room = repo.add_room(room)
+        except Exception as e:
+            logger.error(f"could not add room {room.name}")
+            logger.error(e)
+            return jsonify({"error": "room could not be created"}), 500
+        
+
+    sensor = models.Sensor(
+        serial_number= data["serial_number"],
+        room = room
+    )
+
+    try:
+        sensor = repo.add_sensor(sensor)
+    except Exception as e:
+        print(e)
+        return jsonify({"error": "An unexpected error occurred"}), 500
+    else:
+        return jsonify({"id": sensor.serial_number, "message": f"Sensor {sensor.serial_number} was created."}), 201
 
 @app.post("/api/measurement")
 def add_measurement():

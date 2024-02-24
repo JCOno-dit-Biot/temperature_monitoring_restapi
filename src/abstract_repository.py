@@ -7,6 +7,12 @@ class AbstractRepository(abc.ABC):
     def add_room(self, room: Room):
         raise NotImplementedError
     
+    def get_room(self, room: Room):
+        raise NotImplementedError
+    
+    @abc.abstractmethod
+    def add_sensor(self, sensor: Sensor):
+        raise NotImplementedError
     # def add_measurement(self, measurement: measurement, room_id: int):
     #     raise NotImplementedError
     
