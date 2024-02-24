@@ -1,11 +1,12 @@
 import os
-from flask import Flask, request
+from flask import Flask, request, jsonify
 import psycopg2
 from dotenv import load_dotenv
 from src import models
 from src.sqlmodel_repository import *
-# from pydantic import create_model
 from pydantic import ValidationError
+
+from sqlalchemy.exc import IntegrityError, OperationalError, DataError, ProgrammingError
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -50,13 +51,27 @@ SQLModel.metadata.create_all(engine)
 repo = SQLModel_repository(engine)
 app = Flask(__name__)
 
+
 @app.post("/api/room")
 def create_room():
     data= request.get_json()
     room = models.Room(name = data["name"])
-    room= repo.add_room(room)
 
-    return {"id": room.id, "message": f"Room {room.name} created."}, 201
+    try:
+        room= repo.add_room(room)
+    except IntegrityError:
+        return jsonify({"error": "Integrity error occurred"}), 400
+    except DataError:
+        return jsonify({"error": "Invalid data format"}), 400
+    except OperationalError:
+        return jsonify({"error": "Operational error with the database"}), 500
+    except ProgrammingError:
+        return jsonify({"error": "Database programming error"}), 500
+    except Exception as e:
+        return jsonify({"error": "An unexpected error occurred"}), 500
+    else:
+        return jsonify({"id": room.id, "message": f"Room {room.name} created."}), 201
+
 
 @app.post("/api/measurement")
 def add_measurement():
