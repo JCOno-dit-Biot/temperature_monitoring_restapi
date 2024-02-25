@@ -82,7 +82,7 @@ def create_sensor():
     
     if room is None:
         try: 
-            room = repo.add_room(room)
+            room = repo.add_room(models.Room(name = data["room_name"]))
         except Exception as e:
             logger.error(f"could not add room {room.name}")
             logger.error(e)
