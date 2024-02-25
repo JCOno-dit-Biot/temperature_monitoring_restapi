@@ -29,21 +29,43 @@ class SQLModel_repository(AbstractRepository):
 
             return room
         
+    def add_plant(self, plant):
+        with Session(self.engine) as session:
+            try:
+                session.add(plant)
+
+            except Exception as e:
+                session.rollback()
+                logger.error('could not insert new room in database')
+                logger.error(e)
+            else:
+                session.commit()
+                session.refresh(plant)
+
+            return plant
+
+        
     def get_room(self, room: Room):
 
         with Session(self.engine) as session:
             statement = select(Room).where(func.lower(Room.name) == room.name.lower())
             room = session.exec(statement).first()
         return room
-
-    def add_sensor(self, sensor: Sensor):
+    
+    def get_plant(self, plant: Plant):
+        with Session(self.engine) as session:
+            statement = select(Plant).where(func.lower(Plant.name) == plant.name.lower())
+            plant = session.exec(statement).first()
+        return plant
+    
+    def add_sensor(self, sensor: Union[Sensor, PlantSensor]):
 
         with Session(self.engine) as session:
             try:
                 session.add(sensor)
             except Exception as e:
                 session.rollback()
-                logger.error('could not insert new room in database')
+                logger.error(f'could not insert new sensor {sensor.serial_number} in database')
                 logger.error(e)
             else:
                 session.commit()

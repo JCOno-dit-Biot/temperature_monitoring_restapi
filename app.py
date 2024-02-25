@@ -86,10 +86,11 @@ def create_room():
 
 @app.post("/api/sensor")
 def create_sensor():
+    plant = None
     data= request.get_json()
 
     room = repo.get_room(models.Room(name = data["room_name"]))
-    
+
     if room is None:
         try: 
             room = repo.add_room(models.Room(name = data["room_name"]))
@@ -98,11 +99,28 @@ def create_sensor():
             logger.error(e)
             return jsonify({"error": "room could not be created"}), 500
         
+    elif "plant_name" in data:
 
-    sensor = models.Sensor(
-        serial_number= data["serial_number"],
-        room = room
-    )
+        plant = repo.get_plant(models.Plant(name = data["plant_name"]))
+    
+        if plant is None:
+            try: 
+                plant = repo.add_plant(models.Plant(name = data["plant_name"], room= room))
+            except Exception as e:
+                logger.error(f"could not add plant {plant.name}")
+                logger.error(e)
+                return jsonify({"error": "plant could not be created"}), 500
+            
+        if plant is None:
+            sensor = models.Sensor(
+                serial_number= data["serial_number"],
+                room = room
+            )
+        else: 
+            sensor =  models.PlantSensor(
+                serial_number=data["serial_number"],
+                plant = plant
+            )
 
     try:
         sensor = repo.add_sensor(sensor)

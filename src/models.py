@@ -30,8 +30,8 @@ class Sensor(SQLModel, table = True):
 
 class PlantSensor(SQLModel, table = True):
     __tablename__ = "plant_sensor"
-    plant_id: Optional[int] = Field(default=None, foreign_key="plant.id")
-    plant: Optional[Plant] = Relationship(back_populates="sensor")
+    plant_id: int = Field(default=None, foreign_key="plant.id")
+    plant: Plant = Relationship(back_populates="sensor")
     serial_number: int = Field(default = 0, primary_key=True)
     plant_sensor_entry: Optional[List["PlantSensorEntry"]]= Relationship(back_populates = "sensor")
   

@@ -13,6 +13,10 @@ class AbstractRepository(abc.ABC):
         raise NotImplementedError
     
     @abc.abstractmethod
+    def add_plant(self, plant):
+        raise NotImplementedError
+    
+    @abc.abstractmethod
     def add_sensor(self, sensor: Sensor):
         raise NotImplementedError
     
@@ -20,6 +24,10 @@ class AbstractRepository(abc.ABC):
     def get_sensor(self, sensor: Union[Sensor, PlantSensor]):
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def get_plant(self, plant: Plant):
+        raise NotImplementedError
+    
     @abc.abstractmethod
     def add_data_entry(self, sensor_entry: Union[PlantSensorEntry, HumityTemperatureEntry]):
         raise NotImplementedError
