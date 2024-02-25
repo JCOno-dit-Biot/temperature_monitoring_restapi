@@ -26,14 +26,14 @@ class Sensor(SQLModel, table = True):
     room_id: Optional[int] = Field(default=None, foreign_key="room.id")
     room: Optional[Room] = Relationship(back_populates="sensor")
     serial_number: int = Field(default = 0, primary_key=True)
-    humidity_temperature_entry: Optional["HumityTemperatureEntry"]= Relationship(back_populates = "sensor")
+    humidity_temperature_entry: Optional[List["HumityTemperatureEntry"]]= Relationship(back_populates = "sensor")
 
 class PlantSensor(SQLModel, table = True):
     __tablename__ = "plant_sensor"
     plant_id: Optional[int] = Field(default=None, foreign_key="plant.id")
     plant: Optional[Plant] = Relationship(back_populates="sensor")
     serial_number: int = Field(default = 0, primary_key=True)
-    plant_sensor_entry: Optional["PlantSensorEntry"]= Relationship(back_populates = "sensor")
+    plant_sensor_entry: Optional[List["PlantSensorEntry"]]= Relationship(back_populates = "sensor")
   
 
 class HumityTemperatureEntry(SQLModel, table = True):

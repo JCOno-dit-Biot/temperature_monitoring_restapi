@@ -26,13 +26,23 @@ def parse_measurement_dict(data_dict):
             entry_timestamp = datetime.utcnow()
             logger.warning(e)
             logger.warning("could not parse timestamp to utc time, using now as the measurement time")
+        
 
-        measurement_obj = measurement(
-            room= room(data_dict["name"]),
-            temperature = data_dict["temperature"],
-            humidity = data_dict['humidity'],
-            entry_timestamp = entry_timestamp
-        )
+        if 'wetness' in data_dict:
+            measurement_obj = models.PlantSensorEntry(
+                entry_timestamp=entry_timestamp,
+                temperature = data_dict['temperature'],
+                humidity = data_dict['humidity'],
+                wetness = data_dict["wetness"]
+            )
+
+
+            measurement_obj = measurement(
+                room= room(data_dict["name"]),
+                temperature = data_dict["temperature"],
+                humidity = data_dict['humidity'],
+                entry_timestamp = entry_timestamp
+            )
 
         return measurement_obj
 
@@ -105,16 +115,45 @@ def create_sensor():
 @app.post("/api/measurement")
 def add_measurement():
     data = request.get_json()
-    sensor_measurement = parse_measurement_dict(data)
+    
+    try:
+        data["entry_timestamp"] = datetime.utcfromtimestamp(int(data["timestamp"]))
+    except KeyError as e:
+        data["entry_timestamp"] = datetime.utcnow()
+        logger.warning(e)
+        logger.warning("could not parse timestamp to utc time, using now as the measurement time")
 
-    room_id = repo.get_room_id(sensor_measurement.room)
-    print(room_id)
-    if room_id is not None:
-        repo.add_measurement(sensor_measurement, room_id)
+    if 'wetness' in data:
+        plant_sensor = repo.get_sensor(models.PlantSensor(serial_number = data["serial_number"]))
+
+        if plant_sensor is None:
+            return jsonify ({"error": "Sensor is not in the database, entry is ignored"}), 500
+        else:
+
+            sensor_entry = models.PlantSensorEntry(
+                sensor = plant_sensor,
+                entry_timestamp = data["entry_timestamp"],
+                temperature = data['temperature'],
+                humidity = data['humidity'],
+                wetness = data["wetness"]
+            )
+    
     else:
-        room_id = repo.add_room(sensor_measurement.room)
-        repo.add_measurement(sensor_measurement, room_id)
+        sensor = repo.get_sensor(models.Sensor(serial_number = data["serial_number"]))
 
+        if sensor is None:
+            return jsonify ({"error": "Sensor is not in the database, entry is ignored"}), 500
+        else:
+
+            sensor_entry = models.HumityTemperatureEntry(
+                sensor = sensor,
+                entry_timestamp = data["entry_timestamp"],
+                temperature = data['temperature'],
+                humidity = data['humidity']
+            )
+
+    sensor_entry = repo.add_data_entry(sensor_entry)
+    print(sensor_entry)
     return { "message": f"Measurement recorded."}, 201
 
 
