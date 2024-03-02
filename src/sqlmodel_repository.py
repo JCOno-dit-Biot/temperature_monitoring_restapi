@@ -1,5 +1,5 @@
 from sqlmodel import create_engine, Session, select, func
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, join
 
 from src.models import Room
 from .models import *
@@ -96,7 +96,7 @@ class SQLModel_repository(AbstractRepository):
         return sensor
     
     def get_sensor(self, sensor: Union[PlantSensor, Sensor]):
-        
+
         ''' Get sensor, depending on the class of sensor it will find the plant or regular sensor'''
 
         with Session(self.engine) as session:
@@ -125,3 +125,21 @@ class SQLModel_repository(AbstractRepository):
 
         return sensor_entry
     
+    #as a first step the average temperature collects only from regular sensors
+    def get_average_temperature(self, room = None):
+        average_temperature = None
+
+        with Session(self.engine) as session:
+            query = select(func.avg(HumityTemperatureEntry.temperature)).join(Sensor, HumityTemperatureEntry.sensor_id == Sensor.serial_number)
+
+            if room is not None:
+                query =  query.where(Sensor.room == room)
+
+            try:
+                average_temperature = session.scalar(query)
+            
+            except Exception as e:
+                logger.error("could not calculate average temperature")
+                logger.error(e)
+
+        return average_temperature

@@ -31,9 +31,10 @@ class AbstractRepository(abc.ABC):
     @abc.abstractmethod
     def add_data_entry(self, sensor_entry: Union[PlantSensorEntry, HumityTemperatureEntry]):
         raise NotImplementedError
-
-    # def add_measurement(self, measurement: measurement, room_id: int):
-    #     raise NotImplementedError
+    
+    @abc.abstractmethod
+    def get_average_temperature(avg_room):
+        raise NotImplementedError
     
     # def get_number_days_monitoring(self):
     #     raise NotImplementedError

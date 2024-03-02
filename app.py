@@ -194,8 +194,9 @@ def get_average_temperature(room_name):
     data = {"name":room_name}
     
     try:
-        avg_room = models.room(**data)
-    except ValidationError:
+        avg_room = repo.get_room(models.Room(name = data["name"]))
+        print(avg_room)
+    except KeyError:
         logger.warning("No room were specified, calculating the average over all entries")
         avg_room = None
 
@@ -203,5 +204,4 @@ def get_average_temperature(room_name):
     if average_temp:
         return { "average": round(average_temp, 2)}, 200
     else:
-        #
-        return {"messsage": f"could not calcualte average for room: {avg_room.name}"} ,200
+        return {"error": f"could not calcualte average temperature"} , 500
