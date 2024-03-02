@@ -20,6 +20,7 @@ class SQLModel_repository(AbstractRepository):
         with Session(self.engine) as session:
             
             #Convert the value to lowercase and check if it already exists
+            #TODO: use get_room instead
             exists = session.exec(select(Room).where(func.lower(Room.name) == room.name.lower())).first()
             
             if exists:
@@ -42,6 +43,10 @@ class SQLModel_repository(AbstractRepository):
             
         
     def add_plant(self, plant):
+        '''
+        Add a new plant in the database, plant name is unique.
+        This method can only be called when adding a sensor to the database currently
+        '''
         with Session(self.engine) as session:
             try:
                 session.add(plant)
@@ -58,7 +63,9 @@ class SQLModel_repository(AbstractRepository):
 
         
     def get_room(self, room: Room):
-
+        '''
+        Method to check if a room exists in the database
+        '''
         with Session(self.engine) as session:
             statement = select(Room).where(func.lower(Room.name) == room.name.lower())
             room = session.exec(statement).first()
@@ -71,7 +78,10 @@ class SQLModel_repository(AbstractRepository):
         return plant
     
     def add_sensor(self, sensor: Union[Sensor, PlantSensor]):
-
+        '''
+        Add sensor to the database, depending on the class that is passed in, 
+        it will save a plant or regular sensor
+        '''
         with Session(self.engine) as session:
             try:
                 session.add(sensor)
@@ -86,6 +96,8 @@ class SQLModel_repository(AbstractRepository):
         return sensor
     
     def get_sensor(self, sensor: Union[PlantSensor, Sensor]):
+        
+        ''' Get sensor, depending on the class of sensor it will find the plant or regular sensor'''
 
         with Session(self.engine) as session:
             if isinstance(sensor, Sensor):

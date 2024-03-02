@@ -66,7 +66,10 @@ app = Flask(__name__)
 
 @app.post("/api/room")
 def create_room():
-    '''end point to create a room in the database, room only need a name'''
+    '''
+    End point to create a room in the database, room only need a name
+    The room name must be unique (case insensitive)
+    '''
 
     data= request.get_json()
     room = models.Room(name = data["name"])
@@ -99,7 +102,7 @@ def create_sensor():
         except Exception as e:
             logger.error(f"could not add room {room.name}")
             logger.error(e)
-            return jsonify({"error": "room could not be created"}), 500
+            return jsonify({"error": "Could not find the matching plant and could not create a new one"}), 500
         
     elif "plant_name" in data:
 
@@ -108,11 +111,13 @@ def create_sensor():
         if plant is None:
             try: 
                 plant = repo.add_plant(models.Plant(name = data["plant_name"], room= room))
+            #TODO handle different types of exception separately -- see add_room    
             except Exception as e:
                 logger.error(f"could not add plant {plant.name}")
                 logger.error(e)
-                return jsonify({"error": "plant could not be created"}), 500
-            
+                return jsonify({"error": "Could not find the matching plant and could not create a new one"}), 500
+
+        #depending on the field in the request, the method creates a plant sensor or a regular sensor    
         if plant is None:
             sensor = models.Sensor(
                 serial_number= data["serial_number"],
@@ -125,9 +130,10 @@ def create_sensor():
             )
 
     try:
+        #sensor can be a Plant or Regular sensor based on the processing done above
         sensor = repo.add_sensor(sensor)
     except Exception as e:
-        print(e)
+        logger.error(e)
         return jsonify({"error": "An unexpected error occurred"}), 500
     else:
         return jsonify({"id": sensor.serial_number, "message": f"Sensor {sensor.serial_number} was created."}), 201
@@ -136,6 +142,8 @@ def create_sensor():
 def add_measurement():
     data = request.get_json()
     
+    #tries to parse the timestamp as a UTC datetime, if it cannot find the timestamp
+    #the data is timestamped with the time at which it is processed
     try:
         data["entry_timestamp"] = datetime.utcfromtimestamp(int(data["timestamp"]))
     except KeyError as e:
@@ -146,6 +154,7 @@ def add_measurement():
     if 'wetness' in data:
         plant_sensor = repo.get_sensor(models.PlantSensor(serial_number = data["serial_number"]))
 
+        #only save data if the plant is known in the database
         if plant_sensor is None:
             return jsonify ({"error": "Sensor is not in the database, entry is ignored"}), 500
         else:
@@ -159,6 +168,7 @@ def add_measurement():
             )
     
     else:
+        #if the request does not contain wetness, it is a regular sensor (temperature and humidity only)
         sensor = repo.get_sensor(models.Sensor(serial_number = data["serial_number"]))
 
         if sensor is None:
@@ -173,7 +183,7 @@ def add_measurement():
             )
 
     sensor_entry = repo.add_data_entry(sensor_entry)
-    print(sensor_entry)
+    
     return { "message": f"Measurement recorded."}, 201
 
 
