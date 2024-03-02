@@ -66,6 +66,8 @@ app = Flask(__name__)
 
 @app.post("/api/room")
 def create_room():
+    '''end point to create a room in the database, room only need a name'''
+
     data= request.get_json()
     room = models.Room(name = data["name"])
 

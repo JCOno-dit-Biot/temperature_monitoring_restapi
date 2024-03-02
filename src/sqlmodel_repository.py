@@ -5,6 +5,8 @@ from src.models import Room
 from .models import *
 from .abstract_repository import AbstractRepository
 from typing import Union
+from sqlalchemy.exc import IntegrityError, OperationalError, DataError, ProgrammingError
+
 
 logger = logging.getLogger(__name__)
 
@@ -16,18 +18,28 @@ class SQLModel_repository(AbstractRepository):
     
     def add_room(self,room: Room):
         with Session(self.engine) as session:
-            try:
-                session.add(room)
-
-            except Exception as e:
+            
+            #Convert the value to lowercase and check if it already exists
+            exists = session.exec(select(Room).where(func.lower(Room.name) == room.name.lower())).first()
+            
+            if exists:
                 session.rollback()
-                logger.error('could not insert new room in database')
-                logger.error(e)
+                raise ValueError("Entry with this value already exists.")
+            
             else:
-                session.commit()
-                session.refresh(room)
+                try:
+                    session.add(room)
+                    
+                except Exception as e:
+                    session.rollback()
+                    logger.error('could not insert new room in database')
+                    raise Exception
+                else:
+                    session.commit()
+                    session.refresh(room)
+                    return room
 
-            return room
+            
         
     def add_plant(self, plant):
         with Session(self.engine) as session:
