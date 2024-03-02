@@ -85,6 +85,7 @@ def create_room():
     except ProgrammingError:
         return jsonify({"error": "Database programming error"}), 500
     except Exception as e:
+        logger.error(e)
         return jsonify({"error": "An unexpected error occurred"}), 500
     else:
         return jsonify({"id": room.id, "message": f"Room {room.name} created."}), 201
@@ -111,7 +112,6 @@ def create_sensor():
         if plant is None:
             try: 
                 plant = repo.add_plant(models.Plant(name = data["plant_name"], room= room))
-            #TODO handle different types of exception separately -- see add_room    
             except Exception as e:
                 logger.error(f"could not add plant {plant.name}")
                 logger.error(e)

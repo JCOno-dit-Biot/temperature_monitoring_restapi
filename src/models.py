@@ -19,7 +19,7 @@ class Plant(SQLModel, table=True):
     room_id: Optional[int] = Field(default=None, foreign_key="room.id")
     room: Optional[Room] = Relationship(back_populates="plant")
     name: str = Field(unique=True)
-    sensor: Optional["PlantSensor"] = Relationship(back_populates="plant")
+    sensor: List[Optional["PlantSensor"]] = Relationship(back_populates="plant")
 
 class Sensor(SQLModel, table = True):
     __tablename__ = "sensor"
