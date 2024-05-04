@@ -1,13 +1,11 @@
 import os
 from flask import Flask, request, jsonify
-import psycopg2
 from dotenv import load_dotenv
 from src import models
 from src.sqlmodel_repository import *
-from sqlalchemy.orm import joinedload
 
+#error handling packages
 from pydantic import ValidationError
-
 from sqlalchemy.exc import IntegrityError, OperationalError, DataError, ProgrammingError
 
 logging.basicConfig(level=logging.DEBUG)
@@ -47,22 +45,32 @@ def parse_measurement_dict(data_dict):
         return measurement_obj
 
 
-
+#define postgres database connection parameters
 host = "localhost"
 database= os.getenv("POSTGRES_DB_NAME")
 user= os.getenv("POSTGRES_USER_NAME")
 password= os.getenv("POSTGRES_PWD")
 port = os.getenv("PORT")
 
-
+#database connection string for  sqlAlchemy
 DATABASE_URL = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}"
 
 engine = create_engine(DATABASE_URL)
 SQLModel.metadata.create_all(engine)
 
+#define repository, here we are using SQLModel
 repo = SQLModel_repository(engine)
+#define flask app
 app = Flask(__name__)
 
+# @app.before_request
+# def limit_remote_addr():
+#     if not request.remote_addr.startswith('192.168.2.'):
+#         abort(403)  # Forbidden
+
+@app.route('/')
+def index():
+    return('Welcome to your home monitoring server')
 
 @app.post("/api/room")
 def create_room():
@@ -92,11 +100,16 @@ def create_room():
 
 @app.post("/api/sensor")
 def create_sensor():
+
+    #initialize plant as None
     plant = None
+
+    #collect data from request
     data= request.get_json()
 
     room = repo.get_room(models.Room(name = data["room_name"]))
 
+    #if the room does not exist in the database, create it
     if room is None:
         try: 
             room = repo.add_room(models.Room(name = data["room_name"]))
@@ -105,29 +118,31 @@ def create_sensor():
             logger.error(e)
             return jsonify({"error": "Could not find the matching plant and could not create a new one"}), 500
         
-    elif "plant_name" in data:
-
+    #check for field value in data, only plant sensor would report a plant name
+    if "plant_name" in data:
+    
         plant = repo.get_plant(models.Plant(name = data["plant_name"]))
     
+        #if the plant does not exist in the database, it is created
         if plant is None:
             try: 
-                plant = repo.add_plant(models.Plant(name = data["plant_name"], room= room))
+                plant = repo.add_plant(models.Plant(name = data["plan_name"], room= room))
             except Exception as e:
-                logger.error(f"could not add plant {plant.name}")
+                logger.error(f"could not add plant {data["plant_name"]}")
                 logger.error(e)
                 return jsonify({"error": "Could not find the matching plant and could not create a new one"}), 500
+      
+        #at this stage plant should be defined (either from the database or was just added)
+        sensor =  models.PlantSensor(
+                    serial_number=data["serial_number"],
+                    plant = plant
+        )
 
-        #depending on the field in the request, the method creates a plant sensor or a regular sensor    
-        if plant is None:
-            sensor = models.Sensor(
-                serial_number= data["serial_number"],
-                room = room
-            )
-        else: 
-            sensor =  models.PlantSensor(
-                serial_number=data["serial_number"],
-                plant = plant
-            )
+    else:
+        sensor = models.Sensor(
+            serial_number= data["serial_number"],
+            room = room
+        )
 
     try:
         #sensor can be a Plant or Regular sensor based on the processing done above
@@ -144,6 +159,7 @@ def add_measurement():
     
     #tries to parse the timestamp as a UTC datetime, if it cannot find the timestamp
     #the data is timestamped with the time at which it is processed
+    #TODO add some timestamp validation (for example cannot be 0)
     try:
         data["entry_timestamp"] = datetime.utcfromtimestamp(int(data["timestamp"]))
     except KeyError as e:
@@ -158,7 +174,6 @@ def add_measurement():
         if plant_sensor is None:
             return jsonify ({"error": "Sensor is not in the database, entry is ignored"}), 500
         else:
-
             sensor_entry = models.PlantSensorEntry(
                 sensor = plant_sensor,
                 entry_timestamp = data["entry_timestamp"],
@@ -174,7 +189,6 @@ def add_measurement():
         if sensor is None:
             return jsonify ({"error": "Sensor is not in the database, entry is ignored"}), 500
         else:
-
             sensor_entry = models.HumityTemperatureEntry(
                 sensor = sensor,
                 entry_timestamp = data["entry_timestamp"],
@@ -182,6 +196,7 @@ def add_measurement():
                 humidity = data['humidity']
             )
 
+    #TODO add try block, make sure add_data_entry would raise an exception if needed
     sensor_entry = repo.add_data_entry(sensor_entry)
     
     return { "message": f"Measurement recorded."}, 201
