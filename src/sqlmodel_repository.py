@@ -1,7 +1,5 @@
 from sqlmodel import create_engine, Session, select, func
 from sqlalchemy.orm import joinedload, join
-
-from src.models import Room
 from .models import *
 from .abstract_repository import AbstractRepository
 from typing import Union
