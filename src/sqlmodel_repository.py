@@ -14,12 +14,26 @@ class SQLModel_repository(AbstractRepository):
     def __init__(self, engine):
         self.engine = engine
     
+    def get_room(self, room: Room):
+        '''
+        Method to check if a room exists in the database
+        '''
+        with Session(self.engine) as session:
+            statement = select(Room).where(func.lower(Room.name) == room.name.lower())
+            room = session.exec(statement).first()
+        return room
+    
     def add_room(self,room: Room):
+        '''
+        Add a room to the database table is it does not exist
+        This method is not case sensitive (if Living-Room is saved in the database, 
+        living-room would not be save)
+        '''
+
         with Session(self.engine) as session:
             
-            #Convert the value to lowercase and check if it already exists
-            #TODO: use get_room instead
-            exists = session.exec(select(Room).where(func.lower(Room.name) == room.name.lower())).first()
+            #Check if room is already in database (not case sensitive)
+            exists = self.get_room(room)
             
             if exists:
                 session.rollback()
@@ -43,7 +57,7 @@ class SQLModel_repository(AbstractRepository):
     def add_plant(self, plant):
         '''
         Add a new plant in the database, plant name is unique.
-        This method can only be called when adding a sensor to the database currently
+        This method is only be called when adding a plant sensor to the database currently
         '''
         with Session(self.engine) as session:
             try:
@@ -60,16 +74,10 @@ class SQLModel_repository(AbstractRepository):
             return plant
 
         
-    def get_room(self, room: Room):
-        '''
-        Method to check if a room exists in the database
-        '''
-        with Session(self.engine) as session:
-            statement = select(Room).where(func.lower(Room.name) == room.name.lower())
-            room = session.exec(statement).first()
-        return room
-    
     def get_plant(self, plant: Plant):
+        '''
+        Method to check if a plant already exists in the database (not case sensitive)
+        '''
         with Session(self.engine) as session:
             statement = select(Plant).where(func.lower(Plant.name) == plant.name.lower())
             plant = session.exec(statement).first()
@@ -94,9 +102,9 @@ class SQLModel_repository(AbstractRepository):
         return sensor
     
     def get_sensor(self, sensor: Union[PlantSensor, Sensor]):
-
-        ''' Get sensor, depending on the class of sensor it will find the plant or regular sensor'''
-
+        ''' 
+        Get sensor, depending on the class of sensor it will find the plant or regular sensor
+        '''
         with Session(self.engine) as session:
             if isinstance(sensor, Sensor):
                 statement = select(Sensor).where(Sensor.serial_number == sensor.serial_number)
@@ -108,7 +116,10 @@ class SQLModel_repository(AbstractRepository):
         return sensor
     
     def add_data_entry(self, sensor_entry: Union[PlantSensorEntry, HumityTemperatureEntry]):
-
+        '''
+        Add measurements to the database, depending on the type of data,
+        it will be added to the relevent table
+        '''
         with Session(self.engine) as session:
             try:
                 session.add(sensor_entry)
@@ -123,8 +134,13 @@ class SQLModel_repository(AbstractRepository):
 
         return sensor_entry
     
-    #as a first step the average temperature collects only from regular sensors
+   
     def get_average_temperature(self, room = None):
+        '''
+        This method calculates the average temperature of a room
+        For now it only considers temperature from regular sensor
+        '''
+
         average_temperature = None
 
         with Session(self.engine) as session:
