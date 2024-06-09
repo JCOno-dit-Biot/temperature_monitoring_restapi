@@ -1,3 +1,7 @@
+-- When using SQLmodel classes, tables are automatically created in the database
+-- Alembic can be used to apply migrations if classes are modified
+-- The script below only creates the original tables that were used with the postgres repo
+
 CREATE TABLE IF NOT EXISTS "room" (
     "id" SERIAL PRIMARY KEY,
     "name" VARCHAR(100) NOT NULL UNIQUE  
@@ -26,10 +30,6 @@ CREATE TABLE IF NOT EXISTS "wetness_entry" (
     CONSTRAINT "wetness_pkey_serial_timestamp" PRIMARY KEY ("sensor_serial", "entry_timestamp"),
     CONSTRAINT "wetness_entry_fkey_sensor_sensor_serial" FOREIGN KEY ("sensor_serial") REFERENCES "sensor"("serial_number")
 );
-
-
-
--- select * from "rooms";
 
 INSERT INTO room (name)
     VALUES ('default room')
