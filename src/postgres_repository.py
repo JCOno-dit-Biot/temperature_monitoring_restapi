@@ -46,7 +46,6 @@ class PostgreSQLRepository(AbstractRepository):
 
     def add_measurement(self, measurement: measurement, room_id):
         
-
          with self.connection.cursor() as cur:
             try:
                 cur.execute('INSERT INTO sensor_entry (room_id, entry_timestamp, temperature, humidity) \

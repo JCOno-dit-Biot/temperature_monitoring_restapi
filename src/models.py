@@ -44,6 +44,7 @@ class HumityTemperatureEntry(SQLModel, table = True):
     temperature: float = Field (ge = -40, le = 70)
     humidity: float = Field (ge = 0, le = 1)
 
+#The plant sensors report wetness of the soil in addition to humidity and temperature
 class PlantSensorEntry(SQLModel, table = True):
     __tablename__ = "plant_sensor_entry"
     sensor_id: int = Field(default=0, foreign_key="plant_sensor.serial_number", primary_key=True)
