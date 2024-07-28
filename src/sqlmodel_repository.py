@@ -14,15 +14,23 @@ class SQLModel_repository(AbstractRepository):
     def __init__(self, engine):
         self.engine = engine
     
+    
     def get_room(self, room: Room):
         '''
         Method to check if a room exists in the database
         '''
+
         with Session(self.engine) as session:
-            statement = select(Room).where(func.lower(Room.name) == room.name.lower())
-            room = session.exec(statement).first()
+            #this method is case insensitive
+            if isinstance(room.name, str):
+                statement = select(Room).where(func.lower(Room.name) == room.name.lower())
+                room = session.exec(statement).first()
+            else: 
+                room = None
         return room
     
+    #Validation is not performed by pydantic when the SQLmodel as Table set to True, so this method
+    #makes sure the room name is a string
     def add_room(self,room: Room):
         '''
         Add a room to the database table is it does not exist
@@ -40,17 +48,22 @@ class SQLModel_repository(AbstractRepository):
                 raise ValueError("Entry with this value already exists.")
             
             else:
-                try:
-                    session.add(room)
-                    
-                except Exception as e:
-                    session.rollback()
-                    logger.error('could not insert new room in database')
-                    raise Exception
+                #Validation is not performed by pydantic when the SQLmodel as Table set to True, so this method
+                #makes sure the room name is a string
+                if isinstance(room.name, str):
+                    try:
+                        session.add(room)
+                        
+                    except Exception as e:
+                        session.rollback()
+                        logger.error('could not insert new room in database')
+                        raise Exception
+                    else:
+                        session.commit()
+                        session.refresh(room)
+                        return room
                 else:
-                    session.commit()
-                    session.refresh(room)
-                    return room
+                    raise TypeError('Room name must be a string')
 
             
         
@@ -59,6 +72,9 @@ class SQLModel_repository(AbstractRepository):
         Add a new plant in the database, plant name is unique.
         This method is only be called when adding a plant sensor to the database currently
         '''
+        if isinstance(plant.name, str):
+            plant.name = plant.name.lower()
+            
         with Session(self.engine) as session:
             try:
                 session.add(plant)
@@ -79,8 +95,11 @@ class SQLModel_repository(AbstractRepository):
         Method to check if a plant already exists in the database (not case sensitive)
         '''
         with Session(self.engine) as session:
-            statement = select(Plant).where(func.lower(Plant.name) == plant.name.lower())
-            plant = session.exec(statement).first()
+            if isinstance(plant.name, str):
+                statement = select(Plant).where(func.lower(Plant.name) == plant.name.lower())
+                plant = session.exec(statement).first()
+            else:
+                plant = None
         return plant
     
     def add_sensor(self, sensor: Union[Sensor, PlantSensor]):
