@@ -1,21 +1,21 @@
-
 from datetime import datetime
 import logging
-
 from typing import Optional, List
 from sqlmodel import SQLModel, Field, Relationship
 
+#Note:
+#When the argument table is set to True for SQLModel, it drops the validation
 
 class Room(SQLModel, table = True):
     __tablename__ = "room"
     id : int = Field (default = None, primary_key=True)
-    name: str = Field(unique=True)
+    name: str = Field(unique=True, nullable = False)
     sensor: List[Optional["Sensor"]] = Relationship(back_populates="room")
     plant: List[Optional["Plant"]] = Relationship(back_populates="room")
 
 class Plant(SQLModel, table=True):
     __tablename__ = "plant"
-    id: int = Field (default = None, primary_key=True)
+    id: Optional[int] = Field (default = None, primary_key=True)
     room_id: Optional[int] = Field(default=None, foreign_key="room.id")
     room: Optional[Room] = Relationship(back_populates="plant")
     name: str = Field(unique=True)
@@ -30,7 +30,7 @@ class Sensor(SQLModel, table = True):
 
 class PlantSensor(SQLModel, table = True):
     __tablename__ = "plant_sensor"
-    plant_id: int = Field(default=None, foreign_key="plant.id")
+    plant_id: Optional[int] = Field(default=None, foreign_key="plant.id")
     plant: Plant = Relationship(back_populates="sensor")
     serial_number: int = Field(default = 0, primary_key=True)
     plant_sensor_entry: Optional[List["PlantSensorEntry"]]= Relationship(back_populates = "sensor")
