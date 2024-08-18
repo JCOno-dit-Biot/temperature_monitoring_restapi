@@ -1,7 +1,7 @@
 import pytest
 from sqlmodel import SQLModel, create_engine, Session, text
 from src.models import *
-from src.sqlmodel_repository import SQLModel_repository
+from src.repository.sqlmodel_repository import SQLModel_repository
 import psycopg2
 from sqlalchemy.exc import IntegrityError
 

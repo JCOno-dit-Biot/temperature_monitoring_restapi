@@ -1,9 +1,10 @@
 import os
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
-from src import models
-from src.sqlmodel_repository import *
-
+from src import models, orm
+from src.repository.sqlmodel_repository import *
+from src.helper_functions import create_db_sensor_entry_from_measurement, parse_measurement_dict
+from datetime import datetime, timezone
 #error handling packages
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError, OperationalError, DataError, ProgrammingError
@@ -11,38 +12,9 @@ from sqlalchemy.exc import IntegrityError, OperationalError, DataError, Programm
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-
 load_dotenv()
 
 
-
-def parse_measurement_dict(data_dict):
-        
-        try:
-            entry_timestamp =  datetime.utcfromtimestamp(int(data_dict["timestamp"]))
-        except KeyError as e:
-            entry_timestamp = datetime.utcnow()
-            logger.warning(e)
-            logger.warning("could not parse timestamp to utc time, using now as the measurement time")
-        
-
-        if 'wetness' in data_dict:
-            measurement_obj = models.PlantSensorEntry(
-                entry_timestamp=entry_timestamp,
-                temperature = data_dict['temperature'],
-                humidity = data_dict['humidity'],
-                wetness = data_dict["wetness"]
-            )
-
-
-            measurement_obj = measurement(
-                room= room(data_dict["name"]),
-                temperature = data_dict["temperature"],
-                humidity = data_dict['humidity'],
-                entry_timestamp = entry_timestamp
-            )
-
-        return measurement_obj
 
 
 #define postgres database connection parameters
@@ -80,7 +52,7 @@ def create_room():
     '''
 
     data= request.get_json()
-    room = models.Room(name = data["name"])
+    room = orm.Room(name = data["name"])
 
     try:
         room= repo.add_room(room)
@@ -107,12 +79,12 @@ def create_sensor():
     #collect data from request
     data= request.get_json()
 
-    room = repo.get_room(models.Room(name = data["room_name"]))
+    room = repo.get_room(orm.Room(name = data["room_name"]))
 
     #if the room does not exist in the database, create it
     if room is None:
         try: 
-            room = repo.add_room(models.Room(name = data["room_name"]))
+            room = repo.add_room(orm.Room(name = data["room_name"]))
         except Exception as e:
             logger.error(f"could not add room {room.name}")
             logger.error(e)
@@ -121,25 +93,25 @@ def create_sensor():
     #check for field value in data, only plant sensor would report a plant name
     if "plant_name" in data:
     
-        plant = repo.get_plant(models.Plant(name = data["plant_name"]))
+        plant = repo.get_plant(orm.Plant(name = data["plant_name"]))
     
         #if the plant does not exist in the database, it is created
         if plant is None:
             try: 
-                plant = repo.add_plant(models.Plant(name = data["plan_name"], room= room))
+                plant = repo.add_plant(orm.Plant(name = data["plan_name"], room= room))
             except Exception as e:
                 logger.error(f"could not add plant {data["plant_name"]}")
                 logger.error(e)
                 return jsonify({"error": "Could not find the matching plant and could not create a new one"}), 500
       
         #at this stage plant should be defined (either from the database or was just added)
-        sensor =  models.PlantSensor(
+        sensor =  orm.PlantSensor(
                     serial_number=data["serial_number"],
                     plant = plant
         )
 
     else:
-        sensor = models.Sensor(
+        sensor = orm.Sensor(
             serial_number= data["serial_number"],
             room = room
         )
@@ -157,48 +129,53 @@ def create_sensor():
 def add_measurement():
     data = request.get_json()
     
-    #tries to parse the timestamp as a UTC datetime, if it cannot find the timestamp
-    #the data is timestamped with the time at which it is processed
-    #TODO add some timestamp validation (for example cannot be 0)
-    try:
-        data["entry_timestamp"] = datetime.utcfromtimestamp(int(data["timestamp"]))
-    except KeyError as e:
-        data["entry_timestamp"] = datetime.utcnow()
-        logger.warning(e)
-        logger.warning("could not parse timestamp to utc time, using now as the measurement time")
-
-    if 'wetness' in data:
-        plant_sensor = repo.get_sensor(models.PlantSensor(serial_number = data["serial_number"]))
-
-        #only save data if the plant is known in the database
-        if plant_sensor is None:
-            return jsonify ({"error": "Sensor is not in the database, entry is ignored"}), 500
-        else:
-            sensor_entry = models.PlantSensorEntry(
-                sensor = plant_sensor,
-                entry_timestamp = data["entry_timestamp"],
-                temperature = data['temperature'],
-                humidity = data['humidity'],
-                wetness = data["wetness"]
-            )
     
-    else:
-        #if the request does not contain wetness, it is a regular sensor (temperature and humidity only)
-        sensor = repo.get_sensor(models.Sensor(serial_number = data["serial_number"]))
+    #TODO add some timestamp validation (for example cannot be 0)
 
-        if sensor is None:
-            return jsonify ({"error": "Sensor is not in the database, entry is ignored"}), 500
-        else:
-            sensor_entry = models.HumityTemperatureEntry(
-                sensor = sensor,
-                entry_timestamp = data["entry_timestamp"],
-                temperature = data['temperature'],
-                humidity = data['humidity']
-            )
+    #returns a PlantSensorEntry or HumidityTemperatureEntry depending on the fields in data
+    #If the timestamp cannot be parsed as a UTC timestamp, data is timestamped with the processing timestamp (UTC)
+    #timestamp validation is taken care of by the pydantic class (in parse measurement_dict)
+    measurement_object = parse_measurement_dict(data)
+
 
     #TODO add try block, make sure add_data_entry would raise an exception if needed
     sensor_entry = repo.add_data_entry(sensor_entry)
+    # try:
+    #     data["entry_timestamp"] = datetime.utcfromtimestamp(int(data["timestamp"]))
+    # except KeyError as e:
+    #     data["entry_timestamp"] = datetime.utcnow()
+    #     logger.warning(e)
+    #     logger.warning("could not parse timestamp to utc time, using now as the measurement time")
+
+    # if 'wetness' in data:
+    #     plant_sensor = repo.get_sensor(models.PlantSensor(serial_number = data["serial_number"]))
+
+    #     #only save data if the plant is known in the database
+    #     if plant_sensor is None:
+    #         return jsonify ({"error": "Sensor is not in the database, entry is ignored"}), 500
+    #     else:
+    #         sensor_entry = models.PlantSensorEntry(
+    #             sensor = plant_sensor,
+    #             entry_timestamp = data["entry_timestamp"],
+    #             temperature = data['temperature'],
+    #             humidity = data['humidity'],
+    #             wetness = data["wetness"]
+    #         )
     
+    # else:
+    #     #if the request does not contain wetness, it is a regular sensor (temperature and humidity only)
+    #     sensor = repo.get_sensor(models.Sensor(serial_number = data["serial_number"]))
+
+    #     if sensor is None:
+    #         return jsonify ({"error": "Sensor is not in the database, entry is ignored"}), 500
+    #     else:
+    #         sensor_entry = models.HumityTemperatureEntry(
+    #             sensor = sensor,
+    #             entry_timestamp = data["entry_timestamp"],
+    #             temperature = data['temperature'],
+    #             humidity = data['humidity']
+    #         )
+
     return { "message": f"Measurement recorded."}, 201
 
 
@@ -209,7 +186,7 @@ def get_average_temperature(room_name):
     data = {"name":room_name}
     
     try:
-        avg_room = repo.get_room(models.Room(name = data["name"]))
+        avg_room = repo.get_room(orm.Room(name = data["name"]))
         print(avg_room)
     except KeyError:
         logger.warning("No room were specified, calculating the average over all entries")

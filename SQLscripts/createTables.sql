@@ -1,6 +1,6 @@
 -- When using SQLmodel classes, tables are automatically created in the database
 -- Alembic can be used to apply migrations if classes are modified
--- The script below only creates the original tables that were used with the postgres repo
+-- The script below only creates the original tables that were used with the postgresql repo
 
 CREATE TABLE IF NOT EXISTS "room" (
     "id" SERIAL PRIMARY KEY,
