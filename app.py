@@ -129,9 +129,6 @@ def create_sensor():
 def add_measurement():
     data = request.get_json()
     
-    
-    #TODO add some timestamp validation (for example cannot be 0)
-
     #returns a PlantSensorEntry or HumidityTemperatureEntry depending on the fields in data
     #If the timestamp cannot be parsed as a UTC timestamp, data is timestamped with the processing timestamp (UTC)
     #timestamp validation is taken care of by the pydantic class (in parse measurement_dict)
@@ -140,41 +137,6 @@ def add_measurement():
 
     #TODO add try block, make sure add_data_entry would raise an exception if needed
     sensor_entry = repo.add_data_entry(sensor_entry)
-    # try:
-    #     data["entry_timestamp"] = datetime.utcfromtimestamp(int(data["timestamp"]))
-    # except KeyError as e:
-    #     data["entry_timestamp"] = datetime.utcnow()
-    #     logger.warning(e)
-    #     logger.warning("could not parse timestamp to utc time, using now as the measurement time")
-
-    # if 'wetness' in data:
-    #     plant_sensor = repo.get_sensor(models.PlantSensor(serial_number = data["serial_number"]))
-
-    #     #only save data if the plant is known in the database
-    #     if plant_sensor is None:
-    #         return jsonify ({"error": "Sensor is not in the database, entry is ignored"}), 500
-    #     else:
-    #         sensor_entry = models.PlantSensorEntry(
-    #             sensor = plant_sensor,
-    #             entry_timestamp = data["entry_timestamp"],
-    #             temperature = data['temperature'],
-    #             humidity = data['humidity'],
-    #             wetness = data["wetness"]
-    #         )
-    
-    # else:
-    #     #if the request does not contain wetness, it is a regular sensor (temperature and humidity only)
-    #     sensor = repo.get_sensor(models.Sensor(serial_number = data["serial_number"]))
-
-    #     if sensor is None:
-    #         return jsonify ({"error": "Sensor is not in the database, entry is ignored"}), 500
-    #     else:
-    #         sensor_entry = models.HumityTemperatureEntry(
-    #             sensor = sensor,
-    #             entry_timestamp = data["entry_timestamp"],
-    #             temperature = data['temperature'],
-    #             humidity = data['humidity']
-    #         )
 
     return { "message": f"Measurement recorded."}, 201
 
