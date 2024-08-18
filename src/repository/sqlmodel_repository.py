@@ -136,7 +136,7 @@ class SQLModel_repository(AbstractRepository):
         return sensor
     
     #rework this method to take the pydantic measurement class and interact with the write table
-    def add_data_entry(self, sensor_entry: Union[PlantSensorEntry, HumityTemperatureEntry]):
+    def add_data_entry(self, sensor_entry: Union[PlantSensorEntry, HumidityTemperatureEntry]):
         '''
         Add measurements to the database, depending on the type of data,
         it will be added to the relevent table
@@ -165,7 +165,7 @@ class SQLModel_repository(AbstractRepository):
         average_temperature = None
 
         with Session(self.engine) as session:
-            query = select(func.avg(HumityTemperatureEntry.temperature)).join(Sensor, HumityTemperatureEntry.sensor_id == Sensor.serial_number)
+            query = select(func.avg(HumidityTemperatureEntry.temperature)).join(Sensor, HumidityTemperatureEntry.sensor_id == Sensor.serial_number)
 
             if room is not None:
                 query =  query.where(Sensor.room == room)
