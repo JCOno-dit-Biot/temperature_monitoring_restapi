@@ -1,6 +1,7 @@
 from sqlmodel import create_engine, Session, select, func
 from sqlalchemy.orm import joinedload, join
-from .models import *
+from ..orm import *
+import logging
 from .abstract_repository import AbstractRepository
 from typing import Union
 from sqlalchemy.exc import IntegrityError, OperationalError, DataError, ProgrammingError
@@ -74,7 +75,7 @@ class SQLModel_repository(AbstractRepository):
         '''
         if isinstance(plant.name, str):
             plant.name = plant.name.lower()
-            
+
         with Session(self.engine) as session:
             try:
                 session.add(plant)
@@ -134,6 +135,7 @@ class SQLModel_repository(AbstractRepository):
 
         return sensor
     
+    #rework this method to take the pydantic measurement class and interact with the write table
     def add_data_entry(self, sensor_entry: Union[PlantSensorEntry, HumityTemperatureEntry]):
         '''
         Add measurements to the database, depending on the type of data,
