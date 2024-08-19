@@ -10,7 +10,7 @@ def parse_measurement_dict(data_dict):
             entry_timestamp =  datetime.fromtimestamp(int(data_dict["timestamp"]), tz = timezone.utc)
         except KeyError as e:
             entry_timestamp = datetime.now(timezone.utc)
-            data_dict["timestamp"] = entry_timestamp
+            data_dict["entry_timestamp"] = entry_timestamp
             logging.warning(e)
             logging.warning("could not parse timestamp to utc time, using now as the measurement time")
 

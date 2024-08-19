@@ -123,7 +123,7 @@ def test_temperature_validation(temperature):
     bedroom = Room(**bedroom_dict)
 
     measurement_data = {
-        "room": bedroom,
+        "sensor_id": 1234,
         "entry_timestamp": datetime.utcnow(),
         "temperature": temperature,
         "humidity": 0.5
@@ -145,9 +145,20 @@ def test_create_create_db_entry(humidity_measurement_dict):
     (pytest.lazy_fixture('humidity_measurement_dict'), HumidityTemperatureEntry),
     (pytest.lazy_fixture('wetness_measurement_dict'), PlantSensorEntry)
 ])
-def test_parse_measurement_data(data_dict, expected):
+def test_parse_measurement_data_create_right_instance(data_dict, expected):
     measurement_obj = parse_measurement_dict(data_dict)
     assert isinstance(measurement_obj, expected)
 
+
+def test_parse_measurement_withous_ts():
+    measurement_data = {
+        "sensor_id": 1234,
+        "temperature": 15.6,
+        "humidity": 0.5
+    }
+    measurement_obj = parse_measurement_dict(measurement_data)
+    #this is not ideal for the test but the timestamp is created within parse function so this avoids returning 
+    #the timestamp just for the test itself
+    assert (measurement_obj.entry_timestamp - datetime.now(timezone.utc)).total_seconds() < 0.01
 
 
