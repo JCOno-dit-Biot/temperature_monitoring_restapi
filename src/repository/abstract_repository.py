@@ -1,5 +1,6 @@
 import abc
-from .models import *
+from src.models import *
+from src.orm import *
 from typing import Union
 
 class AbstractRepository(abc.ABC):
@@ -29,7 +30,7 @@ class AbstractRepository(abc.ABC):
         raise NotImplementedError
     
     @abc.abstractmethod
-    def add_data_entry(self, sensor_entry: Union[PlantSensorEntry, HumityTemperatureEntry]):
+    def add_data_entry(self, sensor_entry: Union[PlantSensorEntry, HumidityTemperatureEntry]):
         raise NotImplementedError
     
     @abc.abstractmethod
