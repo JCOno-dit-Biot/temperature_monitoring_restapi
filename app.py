@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request, jsonify
+from fastapi import FastAPI, Request, HTTPException, status
 from dotenv import load_dotenv
 from src import models, orm
 from src.repository.sqlmodel_repository import *
@@ -13,9 +13,6 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 load_dotenv()
-
-
-
 
 #define postgres database connection parameters
 host = "localhost"
@@ -33,51 +30,52 @@ SQLModel.metadata.create_all(engine)
 #define repository, here we are using SQLModel
 repo = SQLModel_repository(engine)
 #define flask app
-app = Flask(__name__)
+app = FastAPI()
 
 # @app.before_request
 # def limit_remote_addr():
 #     if not request.remote_addr.startswith('192.168.2.'):
 #         abort(403)  # Forbidden
 
-@app.route('/')
+@app.get('/')
 def index():
-    return('Welcome to your home monitoring server')
+    return {"message":'Welcome to your home monitoring server'}
 
-@app.post("/api/room")
-def create_room():
+@app.post("/api/room", status_code=status.HTTP_201_CREATED)
+async def create_room(request: Request):
     '''
     End point to create a room in the database, room only need a name
     The room name must be unique (case insensitive)
     '''
 
-    data= request.get_json()
+    data= await request.json()
     room = orm.Room(name = data["name"])
 
     try:
         room= repo.add_room(room)
     except IntegrityError:
-        return jsonify({"error": "Integrity error occurred"}), 400
+        # Handle the exception and return a JSON error response
+        raise HTTPException(status_code=400, detail="Integrity error occurred")
     except DataError:
-        return jsonify({"error": "Invalid data format"}), 400
+        raise HTTPException(status_code=400, detail="Invalid data format")
     except OperationalError:
-        return jsonify({"error": "Operational error with the database"}), 500
+        raise HTTPException(status_code=500, detail="Operational error with the database")
     except ProgrammingError:
-        return jsonify({"error": "Database programming error"}), 500
+        raise HTTPException(status_code=500, detail="Database programming error")
     except Exception as e:
         logger.error(e)
-        return jsonify({"error": "An unexpected error occurred"}), 500
+        raise HTTPException(status_code=400, detail="An unexpected error occurred")
     else:
-        return jsonify({"id": room.id, "message": f"Room {room.name} created."}), 201
+        return {"id": room.id, "message": f"Room {room.name} created."}
 
-@app.post("/api/sensor")
-def create_sensor():
+@app.post("/api/sensor", status_code=status.HTTP_201_CREATED)
+async def create_sensor(request: Request):
 
     #initialize plant as None
     plant = None
 
     #collect data from request
-    data= request.get_json()
+    data= await request.json()
 
     room = repo.get_room(orm.Room(name = data["room_name"]))
 
@@ -88,7 +86,7 @@ def create_sensor():
         except Exception as e:
             logger.error(f"could not add room {room.name}")
             logger.error(e)
-            return jsonify({"error": "Could not find the matching plant and could not create a new one"}), 500
+            return HTTPException(status_code= 500, detail = "Could not find the matching plant and could not create a new one")
         
     #check for field value in data, only plant sensor would report a plant name
     if "plant_name" in data:
@@ -100,9 +98,9 @@ def create_sensor():
             try: 
                 plant = repo.add_plant(orm.Plant(name = data["plan_name"], room= room))
             except Exception as e:
-                logger.error(f"could not add plant {data["plant_name"]}")
+                logger.error(f"could not add plant {data['plant_name']}")
                 logger.error(e)
-                return jsonify({"error": "Could not find the matching plant and could not create a new one"}), 500
+                return HTTPException(status_code= 500, detail = "Could not find the matching plant and could not create a new one")
       
         #at this stage plant should be defined (either from the database or was just added)
         sensor =  orm.PlantSensor(
@@ -121,13 +119,13 @@ def create_sensor():
         sensor = repo.add_sensor(sensor)
     except Exception as e:
         logger.error(e)
-        return jsonify({"error": "An unexpected error occurred"}), 500
+        return HTTPException(status_code= 500, detail = "An unexpected error occurred")
     else:
-        return jsonify({"id": sensor.serial_number, "message": f"Sensor {sensor.serial_number} was created."}), 201
+        return {"id": sensor.serial_number, "message": f"Sensor {sensor.serial_number} was created."}
 
-@app.post("/api/measurement")
-def add_measurement():
-    data = request.get_json()
+@app.post("/api/measurement", status_code=status.HTTP_201_CREATED)
+async def add_measurement(request: Request):
+    data = await request.json()
     
     #returns a PlantSensorEntry or HumidityTemperatureEntry depending on the fields in data
     #If the timestamp cannot be parsed as a UTC timestamp, data is timestamped with the processing timestamp (UTC)
@@ -136,15 +134,15 @@ def add_measurement():
 
 
     #TODO add try block, make sure add_data_entry would raise an exception if needed
-    sensor_entry = repo.add_data_entry(sensor_entry)
+    sensor_entry = repo.add_data_entry(measurement_object)
 
-    return { "message": f"Measurement recorded."}, 201
+    return {"message": "Measurement recorded."}
 
 
 #passing a room is optional. revisit exception Validation may be thrown for other reasons than just room being None
-@app.get("/api/average/", defaults = {'room_name': None})
+@app.get("/api/average/")
 @app.get("/api/average/<string:room_name>")
-def get_average_temperature(room_name):
+async def get_average_temperature(room_name: Optional[str] = None):
     data = {"name":room_name}
     
     try:
