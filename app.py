@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request, HTTPException, status
 from dotenv import load_dotenv
 from src import models, orm
 from src.repository.sqlmodel_repository import *
-from src.helper_functions import create_db_sensor_entry_from_measurement, parse_measurement_dict
+from src.helper_functions import create_db_sensor_entry_from_measurement, parse_measurement
 from datetime import datetime, timezone
 #error handling packages
 from pydantic import ValidationError
@@ -42,14 +42,11 @@ def index():
     return {"message":'Welcome to your home monitoring server'}
 
 @app.post("/api/room", status_code=status.HTTP_201_CREATED)
-async def create_room(request: Request):
+async def create_room(room: Room):
     '''
     End point to create a room in the database, room only need a name
     The room name must be unique (case insensitive)
     '''
-
-    data= await request.json()
-    room = orm.Room(name = data["name"])
 
     try:
         room= repo.add_room(room)
@@ -69,48 +66,42 @@ async def create_room(request: Request):
         return {"id": room.id, "message": f"Room {room.name} created."}
 
 @app.post("/api/sensor", status_code=status.HTTP_201_CREATED)
-async def create_sensor(request: Request):
+async def create_sensor(sensor: models.SensorIn):
 
-    #initialize plant as None
-    plant = None
-
-    #collect data from request
-    data= await request.json()
-
-    room = repo.get_room(orm.Room(name = data["room_name"]))
+    
+    room = repo.get_room(orm.Room(name = sensor.room))    
 
     #if the room does not exist in the database, create it
     if room is None:
         try: 
-            room = repo.add_room(orm.Room(name = data["room_name"]))
+            room = repo.add_room(orm.Room(name = sensor.room))
         except Exception as e:
-            logger.error(f"could not add room {room.name}")
+            logger.error(f"could not add room {room.room}")
             logger.error(e)
             return HTTPException(status_code= 500, detail = "Could not find the matching plant and could not create a new one")
         
     #check for field value in data, only plant sensor would report a plant name
-    if "plant_name" in data:
-    
-        plant = repo.get_plant(orm.Plant(name = data["plant_name"]))
+    if hasattr(sensor, 'plant') and sensor.plant is not None:
+        plant = repo.get_plant(orm.Plant(name = sensor.plant))
     
         #if the plant does not exist in the database, it is created
         if plant is None:
             try: 
-                plant = repo.add_plant(orm.Plant(name = data["plan_name"], room= room))
+                plant = repo.add_plant(orm.Plant(name = sensor.plant, room = room))
             except Exception as e:
-                logger.error(f"could not add plant {data['plant_name']}")
+                logger.error(f"could not add plant {sensor.plant}")
                 logger.error(e)
                 return HTTPException(status_code= 500, detail = "Could not find the matching plant and could not create a new one")
       
         #at this stage plant should be defined (either from the database or was just added)
         sensor =  orm.PlantSensor(
-                    serial_number=data["serial_number"],
+                    serial_number=sensor.serial_number,
                     plant = plant
         )
 
     else:
         sensor = orm.Sensor(
-            serial_number= data["serial_number"],
+            serial_number= sensor.serial_number,
             room = room
         )
 
@@ -124,13 +115,12 @@ async def create_sensor(request: Request):
         return {"id": sensor.serial_number, "message": f"Sensor {sensor.serial_number} was created."}
 
 @app.post("/api/measurement", status_code=status.HTTP_201_CREATED)
-async def add_measurement(request: Request):
-    data = await request.json()
+async def add_measurement(measurement: models.Measurement):
     
     #returns a PlantSensorEntry or HumidityTemperatureEntry depending on the fields in data
     #If the timestamp cannot be parsed as a UTC timestamp, data is timestamped with the processing timestamp (UTC)
     #timestamp validation is taken care of by the pydantic class (in parse measurement_dict)
-    measurement_object = parse_measurement_dict(data)
+    measurement_object = parse_measurement(measurement)
 
 
     #TODO add try block, make sure add_data_entry would raise an exception if needed
