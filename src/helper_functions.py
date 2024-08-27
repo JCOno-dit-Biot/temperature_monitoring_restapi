@@ -3,20 +3,25 @@ from src.orm import *
 from typing import Union
 import logging
 from datetime import datetime, timezone
+import pytz
 
-def parse_measurement_dict(data_dict):
+def parse_measurement(measurement):
         
-        try:
-            entry_timestamp =  datetime.fromtimestamp(int(data_dict["timestamp"]), tz = timezone.utc)
-        except KeyError as e:
-            entry_timestamp = datetime.now(timezone.utc)
-            data_dict["entry_timestamp"] = entry_timestamp
-            logging.warning(e)
+        if measurement.entry_timestamp is not None:
+            try:
+                #check if datetime and what timezone
+                entry_timestamp =  datetime.fromtimestamp(measurement.entry_timestamp, tz = timezone.utc)
+            except TypeError as e:
+                if isinstance(measurement.entry_timestamp, datetime) and measurement.entry_timestamp.tzinfo is None:
+                    logging.warning("timestamp was already in a datetime format instead of the expected epoch timestamp")
+                    measurement.entry_timestamp = pytz.utc.localize(measurement.entry_timestamp)
+                    
+        else:
+            measurement.entry_timestamp = datetime.now(timezone.utc)
             logging.warning("could not parse timestamp to utc time, using now as the measurement time")
 
-        measurement_validation = Measurement(**data_dict)
 
-        measurement_obj = create_db_sensor_entry_from_measurement(measurement_validation)
+        measurement_obj = create_db_sensor_entry_from_measurement(measurement)
 
         return measurement_obj
 

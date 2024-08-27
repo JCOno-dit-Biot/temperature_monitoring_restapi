@@ -1,7 +1,8 @@
 from src.orm import *
 from src.models import *
-from src.helper_functions import create_db_sensor_entry_from_measurement, parse_measurement_dict
+from src.helper_functions import create_db_sensor_entry_from_measurement, parse_measurement
 from datetime import datetime, timezone
+import pytz
 import pytest
 from pydantic import ValidationError
 
@@ -20,17 +21,17 @@ def plant(room):
     return Plant(**dict)
 
 @pytest.fixture
-def humidity_measurement_dict():
+def humidity_measurement():
     measurement_data = {
         "sensor_id": 1234,
         "entry_timestamp": datetime.now(timezone.utc),
         "temperature": 20.5,
         "humidity": 0.67
     }
-    return measurement_data
+    return Measurement(**measurement_data)
 
 @pytest.fixture
-def wetness_measurement_dict():
+def wetness_measurement():
     measurement_data = {
         "sensor_id": 1234,
         "entry_timestamp": datetime.now(timezone.utc),
@@ -38,7 +39,7 @@ def wetness_measurement_dict():
         "humidity": 0.67,
         "wetness":0.54
     }
-    return measurement_data
+    return Measurement(**measurement_data)
 
 
 def test_create_room():
@@ -131,22 +132,22 @@ def test_temperature_validation(temperature):
     with pytest.raises(ValidationError):
         data_entry = Measurement(**measurement_data)
 
-def test_create_create_db_entry(humidity_measurement_dict):
-    db_entry = create_db_sensor_entry_from_measurement(Measurement(**humidity_measurement_dict))
+def test_create_create_db_entry(humidity_measurement):
+    db_entry = create_db_sensor_entry_from_measurement(humidity_measurement)
     assert isinstance(db_entry, HumidityTemperatureEntry) and db_entry.temperature == 20.5 and db_entry.humidity == 0.67 \
     and db_entry.sensor_id == 1234
-    humidity_measurement_dict["wetness"] = 0.54
-    db_entry = create_db_sensor_entry_from_measurement(Measurement(**humidity_measurement_dict))
+    humidity_measurement.wetness = 0.54
+    db_entry = create_db_sensor_entry_from_measurement(humidity_measurement)
     assert isinstance(db_entry, PlantSensorEntry) and db_entry.temperature == 20.5 and db_entry.humidity == 0.67 \
     and db_entry.sensor_id == 1234 and db_entry.wetness == 0.54
 
 
-@pytest.mark.parametrize("data_dict, expected", [
-    (pytest.lazy_fixture('humidity_measurement_dict'), HumidityTemperatureEntry),
-    (pytest.lazy_fixture('wetness_measurement_dict'), PlantSensorEntry)
+@pytest.mark.parametrize("data, expected", [
+    (pytest.lazy_fixture('humidity_measurement'), HumidityTemperatureEntry),
+    (pytest.lazy_fixture('wetness_measurement'), PlantSensorEntry)
 ])
-def test_parse_measurement_data_create_right_instance(data_dict, expected):
-    measurement_obj = parse_measurement_dict(data_dict)
+def test_parse_measurement_data_create_right_instance(data, expected):
+    measurement_obj = parse_measurement(data)
     assert isinstance(measurement_obj, expected)
 
 
@@ -156,9 +157,20 @@ def test_parse_measurement_withous_ts():
         "temperature": 15.6,
         "humidity": 0.5
     }
-    measurement_obj = parse_measurement_dict(measurement_data)
+
+    measurement_object = Measurement(**measurement_data)
+    measurement_obj = parse_measurement(measurement_object)
     #this is not ideal for the test but the timestamp is created within parse function so this avoids returning 
     #the timestamp just for the test itself
     assert (measurement_obj.entry_timestamp - datetime.now(timezone.utc)).total_seconds() < 0.01
 
-
+def test_parse_measurement_naive_timestamp():
+    measurement_data = {
+        "entry_timestamp": datetime.now(),
+        "sensor_id": 1234,
+        "temperature": 15.6,
+        "humidity": 0.5
+    }
+    assert measurement_data["entry_timestamp"].tzinfo == None
+    measurement_obj = parse_measurement(Measurement(**measurement_data))
+    assert measurement_obj.entry_timestamp.tzinfo == pytz.utc

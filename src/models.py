@@ -8,7 +8,7 @@ from typing import Optional
 #this model is only used for validation purposes, it does not interact with the database
 #no distinction between the type of sensor, this can be found from the fields that are present
 class Measurement(BaseModel):
-    entry_timestamp: datetime
+    entry_timestamp: Optional[datetime] = None
     sensor_id: int = Field(ge=0)
     temperature: float = Field (ge = -40, le = 70)
     humidity: float = Field (ge = 0, le = 1)
