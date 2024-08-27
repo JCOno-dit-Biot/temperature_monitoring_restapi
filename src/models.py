@@ -14,3 +14,7 @@ class Measurement(BaseModel):
     humidity: float = Field (ge = 0, le = 1)
     wetness: Optional[float] = Field (ge = 0, le = 1, default = None)
 
+class SensorIn(BaseModel):
+    serial_number: int
+    room: str
+    plant: Optional[str] = None
