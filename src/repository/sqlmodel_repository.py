@@ -46,7 +46,7 @@ class SQLModel_repository(AbstractRepository):
             
             if exists:
                 session.rollback()
-                raise ValueError("Entry with this value already exists.")
+                raise ValueError(f"Room with name {room.name} already exists.")
             
             else:
                 #Validation is not performed by pydantic when the SQLmodel as Table set to True, so this method
