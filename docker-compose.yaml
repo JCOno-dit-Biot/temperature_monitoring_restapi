@@ -9,6 +9,9 @@ services:
       - pgdb
     env_file:
       - .env
+    networks:
+      - mynetwork
+
   pgdb:
     image: postgres:15
     ports:
@@ -17,6 +20,12 @@ services:
       - .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - mynetwork
 
 volumes:
   postgres_data:
+
+networks:
+  mynetwork:
+    driver: bridge
