@@ -1,12 +1,13 @@
 import os
-from fastapi import FastAPI, Request, HTTPException, status
+from contextlib import asynccontextmanager
+import ipaddress
+from fastapi import FastAPI, Request, HTTPException, status, Response
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from src import models, orm
 from src.repository.sqlmodel_repository import *
-from src.helper_functions import create_db_sensor_entry_from_measurement, parse_measurement
-from datetime import datetime, timezone
+from src.helper_functions import parse_measurement
 #error handling packages
-from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError, OperationalError, DataError, ProgrammingError
 
 logging.basicConfig(level=logging.DEBUG)
@@ -15,27 +16,59 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 #define postgres database connection parameters
-host = "localhost"
-database= os.getenv("POSTGRES_DB_NAME")
-user= os.getenv("POSTGRES_USER_NAME")
-password= os.getenv("POSTGRES_PWD")
-port = os.getenv("PORT")
+host = os.getenv("HOSTNAME")
+database= os.getenv("POSTGRES_DB")
+user= os.getenv("POSTGRES_USER")
+password= os.getenv("POSTGRES_PASSWORD")
+port = int(os.getenv("PORT"))
+
+ALLOWED_NETWORKS = [
+    ipaddress.ip_network(os.getenv("LOCAL_IP_MASK")),
+    ipaddress.ip_network("127.0.0.1/32")  # /32 specifies a single IP address
+]
 
 #database connection string for  sqlAlchemy
 DATABASE_URL = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}"
 
 engine = create_engine(DATABASE_URL)
-SQLModel.metadata.create_all(engine)
+
+# async def create_tables():
+#     async with engine.begin() as conn:
+#         # Create all tables stored in this metadata.
+#         await conn.run_sync(SQLModel.metadata.create_all)
 
 #define repository, here we are using SQLModel
 repo = SQLModel_repository(engine)
-#define flask app
-app = FastAPI()
 
-# @app.before_request
-# def limit_remote_addr():
-#     if not request.remote_addr.startswith('192.168.2.'):
-#         abort(403)  # Forbidden
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    SQLModel.metadata.create_all(engine)
+    yield
+    
+
+app = FastAPI(lifespan= lifespan)
+
+@app.middleware("http")
+async def ip_filter_middleware(request: Request, call_next):
+    #in case the app runs behind a reverse proxy, get the original IP
+    client_ip = request.headers.get("x-forwarded-for")
+
+    if client_ip:
+        # The header can contain multiple IP addresses delimited by commas
+        # due to successive proxies. The first one is the original IP.
+        client_ip = client_ip.split(",")[0].strip()
+    else:
+        # Fall back to the direct connection's IP address if no forwarding info
+        client_ip = request.client.host
+    client_ip_address = ipaddress.ip_address(client_ip)
+    if not any(client_ip_address in network for network in ALLOWED_NETWORKS):
+        data = {
+            'message': f'IP {request.client.host} is not allowed to access this resource.'
+        }
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=data)
+    response = await call_next(request)
+    return response
+
 
 @app.get('/')
 def index():
@@ -50,9 +83,9 @@ async def create_room(room: Room):
 
     try:
         room= repo.add_room(room)
-    except IntegrityError:
+    except ValueError as valerr:
         # Handle the exception and return a JSON error response
-        raise HTTPException(status_code=400, detail="Integrity error occurred")
+        raise HTTPException(status_code=409, detail=f"Integrity error occurred, "+ str(valerr))
     except DataError:
         raise HTTPException(status_code=400, detail="Invalid data format")
     except OperationalError:
@@ -75,6 +108,9 @@ async def create_sensor(sensor: models.SensorIn):
     if room is None:
         try: 
             room = repo.add_room(orm.Room(name = sensor.room))
+        except ValueError as valerr:
+            logger.error(valerr)
+            return HTTPException(status_code=409, detail = valerr)
         except Exception as e:
             logger.error(f"could not add room {room.room}")
             logger.error(e)
@@ -91,7 +127,7 @@ async def create_sensor(sensor: models.SensorIn):
             except Exception as e:
                 logger.error(f"could not add plant {sensor.plant}")
                 logger.error(e)
-                return HTTPException(status_code= 500, detail = "Could not find the matching plant and could not create a new one")
+                raise HTTPException(status_code= 500, detail = "Could not find the matching plant and could not create a new one")
       
         #at this stage plant should be defined (either from the database or was just added)
         sensor =  orm.PlantSensor(
@@ -108,9 +144,12 @@ async def create_sensor(sensor: models.SensorIn):
     try:
         #sensor can be a Plant or Regular sensor based on the processing done above
         sensor = repo.add_sensor(sensor)
+    except IntegrityError as e:
+        logger.error(e)
+        raise HTTPException(status_code= 409, detail = "Sensor already exists in database")
     except Exception as e:
         logger.error(e)
-        return HTTPException(status_code= 500, detail = "An unexpected error occurred")
+        raise HTTPException(status_code= 500, detail = "An unexpected error occurred")
     else:
         return {"id": sensor.serial_number, "message": f"Sensor {sensor.serial_number} was created."}
 
