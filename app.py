@@ -30,12 +30,9 @@ ALLOWED_NETWORKS = [
 #database connection string for  sqlAlchemy
 DATABASE_URL = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}"
 
+#start the sqlmodel engine
 engine = create_engine(DATABASE_URL)
 
-# async def create_tables():
-#     async with engine.begin() as conn:
-#         # Create all tables stored in this metadata.
-#         await conn.run_sync(SQLModel.metadata.create_all)
 
 #define repository, here we are using SQLModel
 repo = SQLModel_repository(engine)
@@ -48,6 +45,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan= lifespan)
 
+# This middleware is not strictly necessary if ran as a container in a private network
+# with firewall enabled but this is just an extra layer of safety
 @app.middleware("http")
 async def ip_filter_middleware(request: Request, call_next):
     #in case the app runs behind a reverse proxy, get the original IP
@@ -75,7 +74,7 @@ def index():
     return {"message":'Welcome to your home monitoring server'}
 
 @app.post("/api/room", status_code=status.HTTP_201_CREATED)
-async def create_room(room: Room):
+async def create_room(room: Room) -> dict:
     '''
     End point to create a room in the database, room only need a name
     The room name must be unique (case insensitive)
@@ -99,8 +98,13 @@ async def create_room(room: Room):
         return {"id": room.id, "message": f"Room {room.name} created."}
 
 @app.post("/api/sensor", status_code=status.HTTP_201_CREATED)
-async def create_sensor(sensor: models.SensorIn):
-
+async def create_sensor(sensor: models.SensorIn) -> dict:
+    '''
+    End point to create a sensor in the database, sensors must
+    have a serial number and a room attached, plant is optional.
+    If a plant is specified, the sensor will be added to the plant
+    sensor table.
+    '''
     
     room = repo.get_room(orm.Room(name = sensor.room))    
 
@@ -156,16 +160,28 @@ async def create_sensor(sensor: models.SensorIn):
 @app.post("/api/measurement", status_code=status.HTTP_201_CREATED)
 async def add_measurement(measurement: models.Measurement):
     
-    #returns a PlantSensorEntry or HumidityTemperatureEntry depending on the fields in data
-    #If the timestamp cannot be parsed as a UTC timestamp, data is timestamped with the processing timestamp (UTC)
-    #timestamp validation is taken care of by the pydantic class (in parse measurement_dict)
+    '''
+    Endpoint to add measurements from sensor to the database.
+    Required fields:
+        - sensor_id
+        - temperature
+        - humidity
+    Optional fields:
+        - entry_timestamp, if not specified or cannot be parsed as a UTC timestamp the 
+        data will be timestamped when it is received by the server
+        - wetness, only comes from plant sensors. If this field is present the data 
+        is processed as a plant measurement automatically
+    '''
+    
+    #parse data entry into a database object, plant or regular sensor entry
     measurement_object = parse_measurement(measurement)
 
+    try:
+        sensor_entry = repo.add_data_entry(measurement_object)
+    except Exception as e
+        raise HTTPException(status_code=500, detail = f"Entry cannot be added: {e}")
 
-    #TODO add try block, make sure add_data_entry would raise an exception if needed
-    sensor_entry = repo.add_data_entry(measurement_object)
-
-    return {"message": "Measurement recorded."}
+    return {"message": f"Measurement recorded for sensor sensor_entry {sensor_entry.sensor_id}"}
 
 
 #passing a room is optional. revisit exception Validation may be thrown for other reasons than just room being None
@@ -176,7 +192,6 @@ async def get_average_temperature(room_name: Optional[str] = None):
     
     try:
         avg_room = repo.get_room(orm.Room(name = data["name"]))
-        print(avg_room)
     except KeyError:
         logger.warning("No room were specified, calculating the average over all entries")
         avg_room = None
