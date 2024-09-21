@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError, OperationalError, DataError, Programm
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-load_dotenv()
+load_dotenv(override= True)
 
 #define postgres database connection parameters
 host = os.getenv("HOSTNAME")
@@ -69,7 +69,7 @@ async def ip_filter_middleware(request: Request, call_next):
     return response
 
 
-@app.get('/')
+@app.get('/', include_in_schema=False)
 def index():
     return {"message":'Welcome to your home monitoring server'}
 
@@ -178,7 +178,7 @@ async def add_measurement(measurement: models.Measurement):
 
     try:
         sensor_entry = repo.add_data_entry(measurement_object)
-    except Exception as e
+    except Exception as e:
         raise HTTPException(status_code=500, detail = f"Entry cannot be added: {e}")
 
     return {"message": f"Measurement recorded for sensor sensor_entry {sensor_entry.sensor_id}"}
@@ -186,13 +186,13 @@ async def add_measurement(measurement: models.Measurement):
 
 #passing a room is optional. revisit exception Validation may be thrown for other reasons than just room being None
 @app.get("/api/average/")
-@app.get("/api/average/<string:room_name>")
+@app.get("/api/average/{room_name}")
 async def get_average_temperature(room_name: Optional[str] = None):
-    data = {"name":room_name}
     
-    try:
-        avg_room = repo.get_room(orm.Room(name = data["name"]))
-    except KeyError:
+    
+    if room_name is not None:
+        avg_room = Room(name = room_name)
+    else:
         logger.warning("No room were specified, calculating the average over all entries")
         avg_room = None
 

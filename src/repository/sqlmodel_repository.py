@@ -156,7 +156,7 @@ class SQLModel_repository(AbstractRepository):
         return sensor_entry
     
    
-    def get_average_temperature(self, room = None):
+    def get_average_temperature(self, room : Optional[Room] = None):
         '''
         This method calculates the average temperature of a room
         For now it only considers temperature from regular sensor
